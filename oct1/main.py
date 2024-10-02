@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 import sys
 import random
-from typing import Literal, TypeVar
-from enum import Enum
+from typing import Literal
 
 # i only cloned the repo when i finished
 # Start: 2:30 PM
@@ -17,6 +16,21 @@ faces = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
 class Card:
    suit: SUIT
    face: FACE
+
+@dataclass
+class Hand:
+  n: int
+  faces: list[FACE]
+  suits: list[SUIT]
+
+  def check_straight(self, comb: list[list[FACE]]) -> bool:
+    for c in comb:
+      if set(c).difference(set(self.faces)) == set():
+          return True
+      
+  def check_flush(self) -> bool:
+    if len(set(self.suits)) == 1:
+          return True
 
 @dataclass
 class Deck:
@@ -34,9 +48,18 @@ class Deck:
     self.discard.clear()
   
   def shuffle(self):
-    random.shuffle(drawpile)
+    random.shuffle(self.drawpile)
+  
+  def draw(self, n: int) -> Hand:
+    hand = Hand(n, [],[])
+    for i in range(n):
+      card = self.drawpile.pop(0)
+      hand.faces.append(card.face)
+      hand.suits.append(card.suit)
+      self.discard.append(card)
+    return hand
 
-
+# generate straight combinations
 def gen_straight(combs: list[list[FACE]], n: int):
     faces_ex = faces[:]
     faces_ex.append("Ace")
@@ -46,24 +69,18 @@ def gen_straight(combs: list[list[FACE]], n: int):
       combs.append(seq)
       i += 1
 
-def form_hand(n: int, deck: list[Card], comb : list[list[FACE]], discard: list[Card]) -> bool:
-  hand = deck[:n]
-  faces: list[FACE] = []
-  for j in range(len(hand)):
-     print(f"{j + 1}: {hand[j].face} of {hand[j].suit}")
-     faces.append(hand[j].face)
-  
-  for i in range(n): discard.append(deck.pop(0)) 
+def form_hand(n: int, comb: list[list[FACE]], deck: Deck) -> bool:
+  hand = deck.draw(n)
 
-  # check if straight
-  for c in comb:
+  for j in range(hand.n):
+     print(f"{j + 1}: {hand.faces[j]} of {hand.suits[j]}")
 
-     if set(c).difference(set(faces)) == set():
-        suit = hand[0].suit
-        
-        # check if flush
-        if len(set([s.suit for s in hand])) == 1:
-          return True
+  print('')
+
+  # check if straight flush
+  if hand.check_flush():
+     if hand.check_straight(comb):
+        return True
   
   return False
 
@@ -76,8 +93,6 @@ if __name__ == '__main__':
   straight_comb = []
   gen_straight(straight_comb, N)
 
-  drawpile = deck.drawpile
-  discardpile = deck.discard
   deck.shuffle()
 
   straight_flush = False
@@ -87,11 +102,11 @@ if __name__ == '__main__':
   while not straight_flush:
     c += 1
 
-    if len(drawpile) < N:  
+    if len(deck.drawpile) < N:  
       deck.return_discard()
       deck.shuffle()
       d += 1
 
     print(f"Attempt {c}, deck {d + 1}")
-    straight_flush = form_hand(N, drawpile, straight_comb, discardpile)
-    # print(len(drawpile), len(discardpile))
+    straight_flush = form_hand(N, straight_comb, deck)
+    # print(len(deck.drawpile), len(deck.discard))
