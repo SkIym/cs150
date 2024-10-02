@@ -1,95 +1,97 @@
 from dataclasses import dataclass
 import sys
 import random
-# from typing import Literal
+from typing import Literal, TypeVar
+from enum import Enum
 
-SUITS = ["Hearts", "Diamonds", "Spades", "Clubs"]
-FACES = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King"]
+# i only cloned the repo when i finished
+# Start: 2:30 PM
+# End: 3:42 PM
+
+SUIT = Literal["Hearts", "Diamonds", "Spades", "Clubs"]
+suits = ["Hearts", "Diamonds", "Spades", "Clubs"]
+FACE = Literal["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King"]
+faces = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King"]
 
 @dataclass
 class Card:
-   suit: str
-   face: str
+   suit: SUIT
+   face: FACE
 
 @dataclass
-class Straight:
-   hand: list[Card]
+class Deck:
+  drawpile: list[Card]
+  discard: list[Card]
+  
+  def fill_deck(self):
+    for s in suits:
+        for r in faces:
+          c = Card(s, r)
+          self.drawpile.append(c)
 
-def gen_straight(combs: list[Straight], n: int):
-    faces_ex = FACES[:]
+  def return_discard(self):
+    self.drawpile.extend(self.discard)
+    self.discard.clear()
+  
+  def shuffle(self):
+    random.shuffle(drawpile)
+
+
+def gen_straight(combs: list[list[FACE]], n: int):
+    faces_ex = faces[:]
     faces_ex.append("Ace")
     i = 0
     while i + n <= 14:
       seq = faces_ex[i:i+n]
-      # s = Straight(seq)
-
-      to_r = seq[:]
-      to_r.reverse()
-      # r = Straight(to_r)
-      # print(s)
-      # print(r)
-      
       combs.append(seq)
-      combs.append(to_r)
-      print(combs)
       i += 1
-      
-      
 
-def fill_deck(deck: list[Card]):
-   for s in SUITS:
-      for r in FACES:
-         c = Card(s, r)
-         deck.append(c)
-
-def form_hand(n: int, deck: list[Card], comb : list[Straight]) -> bool:
+def form_hand(n: int, deck: list[Card], comb : list[list[FACE]], discard: list[Card]) -> bool:
   hand = deck[:n]
-  faces = []
+  faces: list[FACE] = []
   for j in range(len(hand)):
-     print(f"{j}: {hand[j].face} of {hand[j].suit}")
+     print(f"{j + 1}: {hand[j].face} of {hand[j].suit}")
      faces.append(hand[j].face)
   
-  for i in range(n): deck.pop(0) # modifies array object in place
-  #  print(hand)
+  for i in range(n): discard.append(deck.pop(0)) 
 
   # check if straight
-  if faces in comb:
-    suit = hand[0].suit
+  for c in comb:
 
-    # check if flush
-    for s in hand:
-       if s.suit != suit:
-          return False
-    return True
-  else:
-     return False
+     if set(c).difference(set(faces)) == set():
+        suit = hand[0].suit
+        
+        # check if flush
+        if len(set([s.suit for s in hand])) == 1:
+          return True
+  
+  return False
 
 if __name__ == '__main__':
   args = sys.argv
   N = int(args[1])
-  deck = []
+  deck = Deck([], [])
+  deck.fill_deck()
+
   straight_comb = []
-
   gen_straight(straight_comb, N)
-  fill_deck(deck)
-  random.shuffle(deck)
 
-  # print(len(deck), N)
-  # print(deck[:N])
+  drawpile = deck.drawpile
+  discardpile = deck.discard
+  deck.shuffle()
 
   straight_flush = False
-  c = 1
-  d = 1
+  c = 0
+  d = 0
+
   while not straight_flush:
-    print(f"Attempt {c}, deck {d}")
-    if len(deck) < N:
-      fill_deck(deck)
-      random.shuffle(deck)
-      d += 1
-    straight_flush = form_hand(N, deck, straight_comb)
     c += 1
-  # print(len(deck))
 
+    if len(drawpile) < N:  
+      deck.return_discard()
+      deck.shuffle()
+      d += 1
 
-        
-
+    print(f"Attempt {c}, deck {d + 1}")
+    straight_flush = form_hand(N, drawpile, straight_comb, discardpile)
+    # print(len(drawpile), len(discardpile))
