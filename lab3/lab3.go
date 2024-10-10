@@ -2,42 +2,174 @@ package main
 
 import (
 	"fmt"
-	// "image/color"
-	// "log"
-	// "net/http"
+	"image/color"
+	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
+
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+	"github.com/PuerkitoBio/goquery"
 )
 
 type source struct {
 	label  *widget.Label
-	status *widget.Label
+	status *canvas.Text
+	url    string
 }
 
 func makeSource(label string, url string) source {
 
 	source := source{
 		widget.NewLabel(label),
-		nil,
+		canvas.NewText("Fetching", color.RGBA{255, 127, 127, 255}),
+		url,
 	}
 
-	status := widget.NewLabel("Fetching")
-	// status.Color = color.RGBA{255, 127, 127, 255}
-
-	source.status = status
+	source.status.TextSize = 60
 
 	return source
 }
 
-var countdownDuration int = 30
+const countdownDuration time.Duration = 30
+
+const fetchTimeout int = 8
+
+func crawler(urlChannel chan string, site *source, term string) {
+
+	fmt.Println("Fetching", site.label.Text)
+
+	done := make(chan struct{})
+
+	go func() {
+		select {
+			case <-time.After(time.Second * time.Duration(fetchTimeout)):
+				site.status.Text = "Timeout"
+				fmt.Println(site.label.Text + " timed out")
+				site.status.Color = color.RGBA{0, 0, 255, 255}
+				urlChannel <- "timeout"
+				close(done)	
+			case <-done:
+				return
+		}
+	}()
+
+	resp, err := http.Get("https://app.requestly.io/delay/5000/" + site.url)
+	if err != nil || resp.StatusCode != 200 {
+		site.status.Text = "Error"
+		site.status.Color = color.RGBA{0, 0, 255, 255}
+		close(done)
+		urlChannel <- "fail"
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		site.status.Text = "Error"
+		site.status.Color = color.RGBA{0, 0, 255, 255}
+		close(done)
+		urlChannel <- "fail"
+	}
+
+	select {
+		case <-done:
+			return
+		default:
+			found := false
+			doc.Find("li").Each(func(i int, p *goquery.Selection) {
+				select {
+				case <-done: // Check if the timeout has occurred
+					return // Exit the loop if timeout is reached
+				default:
+					if strings.Contains(p.Text(), term) {
+						found = true
+					}
+				}
+			})
+
+			if !found {
+				site.status.Text = "Not Suspended"
+				site.status.Color = color.RGBA{127, 127, 127, 255}
+				fmt.Println("not suspended accrdng to", site.label.Text)
+				close(done)
+				urlChannel <- "fail"
+			} else {
+				site.status.Text = "Suspended"
+				site.status.Color = color.RGBA{255, 0, 0, 255}
+				fmt.Println("Suspended accrdng to", site.label.Text)
+				close(done)
+				urlChannel <- "done"
+			}
+	}
+
+	// found := false
+	// doc.Find("li").Each(func(i int, p *goquery.Selection) {
+	// 	select {
+	// 	case <-done: // Check if the timeout has occurred
+	// 		return // Exit the loop if timeout is reached
+	// 	default:
+	// 		if strings.Contains(p.Text(), term) {
+	// 			found = true
+	// 		}
+	// 	}
+	// })
+
+	// if !found {
+	// 	select {
+	// 		case <-done: // Check if the timeout has occurred
+	// 			return // Exit the loop if timeout is reached
+	// 		default:
+	// 			site.status.Text = "Not Suspended"
+	// 			site.status.Color = color.RGBA{127, 127, 127, 255}
+	// 			fmt.Println("not suspended accrdng to", site.label.Text)
+	// 			close(done)
+	// 			urlChannel <- "fail"
+	// 	}
+	// } else {
+	// 	select {
+	// 		case <-done: // Check if the timeout has occurred
+	// 			return // Exit the loop if timeout is reached
+	// 		default:
+	// 			site.status.Text = "Suspended"
+	// 			site.status.Color = color.RGBA{255, 0, 0, 255}
+	// 			fmt.Println("Suspended accrdng to", site.label.Text)
+	// 			close(done)
+	// 			urlChannel <- "done"
+	// 	}
+	// }
+	site.status.Refresh()
+}
+
+func check(sources []source, searchTerm string, urlChannel chan string) {
+	wg := sync.WaitGroup{}
+
+	for i := range sources {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			crawler(urlChannel, &sources[index], searchTerm)
+		}(i)
+	}
+
+	go func() {
+		wg.Wait()
+		close(urlChannel)
+	}()
+}
 
 func main() {
 	a := app.New()
-	w := a.NewWindow("Your window title here")
+	w := a.NewWindow("Fetcher")
 	box := container.NewVBox()
+	countdown := widget.NewLabel(strconv.Itoa(int(countdownDuration)))
+	search := widget.NewEntry()
+	search.SetText("Bulacan")
+	box.Add(countdown)
+	box.Add(search)
 
 	raw, err := os.ReadFile("urls.csv")
 
@@ -48,65 +180,66 @@ func main() {
 	text := string(raw)
 
 	lines := strings.Split(text, "\n")
+	sources := []source{}
+
+	// Decode urls.csv, initialize source structs and widgets
 	for _, s := range lines {
 		line := strings.Split(s, ",")
 		label, url := line[0], line[1]
-		source := makeSource(label, url)
-		horizontal := container.NewHBox(source.label, source.status)
+		site := makeSource(label, url)
+		sources = append(sources, site)
+		horizontal := container.NewHBox(site.label, site.status)
 		box.Add(horizontal)
-		fmt.Println(label, url)
+		// fmt.Println(label, url)
 	}
 
-	// tIMER LOGIC
-	// timer := time.NewTimer(time.Second * 1)
 
-	// go func() {
-	// 	var currentTime int
-	// 	var x int
+	// code below this line should loop
 
-	// 	for {
-	// 		fmt.Println(currentTime)
-	// 		timer = time.NewTimer(time.Second * 1)
-	// 		<-timer.C
+	go func() {
+		for {
+			sec := time.NewTimer(time.Second * 1)
+			<-sec.C
+			timeRemaining, _ := strconv.Atoi(countdown.Text)
+			if timeRemaining == 0 {
+				countdown.SetText(strconv.Itoa(int(countdownDuration)))
+			} else {
+				timeRemaining -= 1
+				countdown.SetText(strconv.Itoa(timeRemaining))
+			}
+		}
+	}()
 
-	// 		currentTime, _ = strconv.Atoi(display.timeLeft.Text)
+	urlChannel := make(chan string)
 
-	// 		if currentTime == 1 {
-	// 			x, _ = strconv.Atoi(display.counter.Text)
-	// 			x += strdisplay.entry.text
-	// 			display.counter.SetText(strconv.Itoa(x))
-	// 			currentTime = countdownDuration
-	// 		} else {
-	// 			currentTime -= 1
-	// 		}
+	check(sources, search.Text, urlChannel)
 
-	// 		display.timeLeft.SetText(strconv.Itoa(currentTime))
+	go func() {
+		for {
 
-	// 	}
-	// }()
+			results := []string{}
+			for result := range urlChannel {
+				// fmt.Println(countdown.Text)
+				// fmt.Println(result)
+				results = append(results, result)
+			}
 
-	// FETCHING PARSING
+			pause := time.NewTimer(time.Second * 3)
+			<-pause.C
 
-	// resp, err := http.Get("https://dcs.upd.edu.ph")
-	// if err != nil || resp.StatusCode != 200 {
-	// 	log.Fatalln("URL fetch failed")
-	// }
+			countdown.SetText(string(countdownDuration))
+			urlChannel = make(chan string)
 
-	// doc, err := goquery.NewDocumentFromReader(resp.Body)
-	// if err != nil {
-	// 	log.Fatalln("HTTP parsing failed")
-	// }
+			for i := range sources {
+				sources[i].status.Text = "Fetching"
+				sources[i].status.Color = color.RGBA{255, 127, 127, 255}
+			}
+			check(sources, search.Text, urlChannel)
+			fmt.Println(results)
+		}
 
-	// found := false
-
-	// doc.Find("a").Each(func(i int, p *goquery.Selection) {
-	// 	if strings.Contains(p.Text(), "Diliman") {
-	// 		found = true
-	// 	}
-	// })
-
-	// fmt.Printf("Is there an `a` tag containing \"Diliman\"? %v\n", found)
+	}()
 
 	w.SetContent(container.NewVBox(box))
-	w.ShowAndRun() // Start Fyne's event loop
+	w.ShowAndRun()
 }

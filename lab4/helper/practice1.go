@@ -22,7 +22,7 @@ func main() {
 	argv := os.Args
 
 	// fmt.Println(argv)
-	if len(argv) < 3 || len(argv) > 3 {
+	if len(argv) != 3 {
 		fmt.Println("ERROR")
 		return
 	}

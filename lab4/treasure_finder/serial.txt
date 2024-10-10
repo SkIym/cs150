@@ -1,0 +1,92 @@
+// THIS IS THE SERIAL!!!!!!!! ===============
+
+	// for {
+	// 	var out []byte
+	// 	var err error
+	// 	var exec_result *exec.Cmd
+
+	// 	if found == "" {
+	// 		// out, err = exec.Command("./treasure", n, seed, k, cell).Output()
+	// 		exec_result = exec.Command("./treasure", n, seed, k, cell)
+	// 	} else {
+	// 		// out, err = exec.Command("./treasure", n, seed, k, cell, found).Output()
+	// 		exec_result = exec.Command("./treasure", n, seed, k, cell, found)
+	// 	}
+	// 	out, err = exec_result.Output()
+
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+
+	// 	searched[cell] = struct{}{}
+
+	// 	run_result := strings.Split(string(out), "\n")[:2]
+	// 	found_result := run_result[0]
+	// 	done = run_result[1]
+
+	// 	if found_result == "found" {
+	// 		if found != "" {
+	// 			found += ":"
+	// 		}
+	// 		found += cell
+
+	// 	}
+
+	// 	if done == "done" {
+	// 		break
+	// 	}
+
+	// 	cellSplit := strings.Split(cell, ",")
+	// 	row := cellSplit[0]
+	// 	col := cellSplit[1]
+	// 	row_check, err_row := strconv.Atoi(row)
+	// 	col_check, err_col := strconv.Atoi(col)
+
+	// 	if err_row != nil || err_col != nil {
+	// 		log.Fatal(err_row)
+	// 	}
+
+	// 	// if done == "nearby" {
+	// 	// 	if row_check+1 < number_n {
+	// 	// 		row = strconv.Itoa(row_check + 1)
+	// 	// 	} else {
+	// 	// 		row = "0"
+	// 	// 		col = strconv.Itoa(col_check + 1)
+	// 	// 	}
+	// 	// } else {
+	// 	// 	//2k + 1
+	// 	// 	// not nearby
+	// 	// 	if row_check+2*number_k+1 < number_n {
+	// 	// 		// row = strconv.Itoa()
+	// 	// 		row = strconv.Itoa(row_check + 2*number_k + 1)
+	// 	// 	} else {
+	// 	// 		row = "0"
+	// 	// 		col = strconv.Itoa(col_check + 1)
+	// 	// 	}
+	// 	// }
+
+	// 	// Changing cell number search
+	// 	if row_check+1 < number_n {
+	// 		row = strconv.Itoa(row_check + 1)
+	// 	} else {
+	// 		row = "0"
+	// 		col = strconv.Itoa(col_check + 1)
+	// 	}
+
+	// 	_, ok := searched[row+","+col]
+	// 	if !ok {
+	// 		cell = row + "," + col
+	// 	}
+	// 	// fmt.Println("Iteration", counter)
+	// 	// fmt.Println("new cell:", cell)
+	// 	// fmt.Println("found:", found)
+	// 	// fmt.Println("searched:", searched)
+	// 	// fmt.Println("length of search:", len(searched))
+	// 	// fmt.Println("nearby:", done)
+	// 	// fmt.Println()
+	// 	// counter += 1
+
+	// 	// if counter > 100 {
+	// 	// 	break
+	// 	// }
+	// }
